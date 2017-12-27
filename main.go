@@ -6,8 +6,9 @@ import (
 )
 
 func main() {
-
+	hostName := "localhost"
+	hostPort := "8080"
+	listenAddr := hostName + ":" + hostPort
 	router := NewRouter()
-
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(listenAddr, router))
 }

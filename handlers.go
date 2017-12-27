@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 
 	"gopkg.in/mgo.v2"
-	//"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
 )
@@ -25,9 +24,9 @@ func getClient() *mgo.Session {
 	return session
 }
 
-func DbIndex(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+func DbIndex(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusOK)
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
 	// fetch database names
@@ -35,15 +34,15 @@ func DbIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	if err := json.NewEncoder(w).Encode(dbNames); err != nil {
+	if err := json.NewEncoder(response).Encode(dbNames); err != nil {
 		panic(err)
 	}
 }
 
-func CollectionIndex(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	vars := mux.Vars(r)
+func CollectionIndex(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusOK)
+	vars := mux.Vars(request)
 	dbName := vars["dbName"]
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
@@ -52,30 +51,30 @@ func CollectionIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	if err := json.NewEncoder(w).Encode(collectionNames); err != nil {
+	if err := json.NewEncoder(response).Encode(collectionNames); err != nil {
 		panic(err)
 	}
 }
 
-func QueryCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+func QueryCollection(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusOK)
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
 	// query collection
-	vars := mux.Vars(r)
+	vars := mux.Vars(request)
 	dbName := vars["dbName"]
 	collectionName := vars["collectionName"]
 	collection := client.DB(dbName).C(collectionName)
-	query,err := extractQuery(r)
+	query,err := extractQuery(request)
 	if err != nil {
 		panic(err)
 	}
-	fields,err := extractFields(r)
+	fields,err := extractFields(request)
 	if err != nil {
 		panic(err)
 	}
-	sort,err := extractSort(r)
+	sort,err := extractSort(request)
 	if err != nil {
 		panic(err)
 	}
@@ -97,13 +96,13 @@ func QueryCollection(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	if err := json.NewEncoder(w).Encode(result); err != nil {
+	if err := json.NewEncoder(response).Encode(result); err != nil {
 		panic(err)
 	}
 }
 
-func extractQuery(r *http.Request) (bson.M,error) {
-	rQuery := r.URL.Query()
+func extractQuery(request *http.Request) (bson.M,error) {
+	rQuery := request.URL.Query()
 	sQuery := rQuery.Get("query")
 	if sQuery == "" {
 		return nil,nil
@@ -118,8 +117,8 @@ func extractQuery(r *http.Request) (bson.M,error) {
 	}
 }
 
-func extractFields(r *http.Request) (bson.M,error) {
-	rQuery := r.URL.Query()
+func extractFields(request *http.Request) (bson.M,error) {
+	rQuery := request.URL.Query()
 	sFields := rQuery.Get("fields")
 	if sFields == "" {
 		return nil,nil
@@ -134,8 +133,8 @@ func extractFields(r *http.Request) (bson.M,error) {
 	}
 }
 
-func extractSort(r *http.Request) ([]string,error) {
-	rQuery := r.URL.Query()
+func extractSort(request *http.Request) ([]string,error) {
+	rQuery := request.URL.Query()
 	sSort := rQuery.Get("sort")
 	if sSort == "" {
 		return nil,nil
@@ -150,23 +149,23 @@ func extractSort(r *http.Request) ([]string,error) {
 	}
 }
 
-func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Welcome!\n")
+func Index(response http.ResponseWriter, request *http.Request) {
+	fmt.Fprint(response, "Welcome!\n")
 }
 
-func InsertCollection(w http.ResponseWriter, r *http.Request) {
+func InsertCollection(response http.ResponseWriter, request *http.Request) {
 	var document bson.M
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	body, err := ioutil.ReadAll(io.LimitReader(request.Body, 1048576))
 	if err != nil {
 		panic(err)
 	}
-	if err := r.Body.Close(); err != nil {
+	if err := request.Body.Close(); err != nil {
 		panic(err)
 	}
 	if err := json.Unmarshal(body, &document); err != nil {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		w.WriteHeader(422) // unprocessable entity
-		if err := json.NewEncoder(w).Encode(err); err != nil {
+		response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		response.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(response).Encode(err); err != nil {
 			panic(err)
 		}
 	}
@@ -174,7 +173,7 @@ func InsertCollection(w http.ResponseWriter, r *http.Request) {
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
 	// insert to collection
-	vars := mux.Vars(r)
+	vars := mux.Vars(request)
 	dbName := vars["dbName"]
 	collectionName := vars["collectionName"]
 	collection := client.DB(dbName).C(collectionName)
@@ -184,15 +183,15 @@ func InsertCollection(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(document); err != nil {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(response).Encode(document); err != nil {
 		panic(err)
 	}
 }
 
-func extractDocument(r *http.Request) (bson.M,error) {
-	body, err := ioutil.ReadAll(r.Body)
+func extractDocument(request *http.Request) (bson.M,error) {
+	body, err := ioutil.ReadAll(request.Body)
 	if err != nil {
 		panic(err)
 	}
