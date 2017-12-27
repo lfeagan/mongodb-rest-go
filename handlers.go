@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
+	"github.com/pkg/errors"
 )
 
 func getClient() *mgo.Session {
@@ -56,6 +57,55 @@ func CollectionIndex(response http.ResponseWriter, request *http.Request) {
 	}
 }
 
+func DropCollection(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusOK)
+	vars := mux.Vars(request)
+	dbName := vars["dbName"]
+	collectionName := vars["collectionName"]
+	// get Mongo client for this session based on cookie or create new client
+	client := getClient()
+	db := client.DB(dbName)
+	if db == nil  {
+		panic(errors.Errorf("No database named %s exists", dbName))
+	}
+	// drop collection
+	collection := db.C(collectionName)
+	err := collection.DropCollection()
+	if err != nil {
+		panic(err)
+	}
+	if err := json.NewEncoder(response).Encode("success"); err != nil {
+		panic(err)
+	}
+}
+
+func CreateCollection(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	response.WriteHeader(http.StatusOK)
+	vars := mux.Vars(request)
+	dbName := vars["dbName"]
+	collectionName := vars["collectionName"]
+	// get Mongo client for this session based on cookie or create new client
+	client := getClient()
+	db := client.DB(dbName)
+	if db == nil  {
+		panic(errors.Errorf("No database named %s exists", dbName))
+	}
+	// create collection
+	collection := db.C(collectionName)
+	collectionInfo := mgo.CollectionInfo{}
+	infoJson := extractQueryParam("info", request)
+	json.Unmarshal([]byte(infoJson), &collectionInfo)
+	err := collection.Create(&collectionInfo)
+	if err != nil {
+		panic(err)
+	}
+	if err := json.NewEncoder(response).Encode("success"); err != nil {
+		panic(err)
+	}
+}
+
 func QueryCollection(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	response.WriteHeader(http.StatusOK)
@@ -66,15 +116,15 @@ func QueryCollection(response http.ResponseWriter, request *http.Request) {
 	dbName := vars["dbName"]
 	collectionName := vars["collectionName"]
 	collection := client.DB(dbName).C(collectionName)
-	query,err := extractQuery(request)
+	query,err := extractQueryParamBson("query", request)
 	if err != nil {
 		panic(err)
 	}
-	fields,err := extractFields(request)
+	fields,err := extractQueryParamBson("fields", request)
 	if err != nil {
 		panic(err)
 	}
-	sort,err := extractSort(request)
+	sort,err := extractQueryParamStringArray("sort", request)
 	if err != nil {
 		panic(err)
 	}
@@ -101,15 +151,19 @@ func QueryCollection(response http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func extractQuery(request *http.Request) (bson.M,error) {
-	rQuery := request.URL.Query()
-	sQuery := rQuery.Get("query")
-	if sQuery == "" {
+func extractQueryParam(key string, request *http.Request) (string) {
+	query := request.URL.Query()
+	return query.Get(key)
+}
+
+func extractQueryParamBson(key string, request *http.Request) (bson.M,error) {
+	value := extractQueryParam(key,request)
+	if value == "" {
 		return nil,nil
 	}
 	var bQuery bson.M
 	var err error
-	err = json.NewDecoder(strings.NewReader(sQuery)).Decode(&bQuery)
+	err = json.NewDecoder(strings.NewReader(value)).Decode(&bQuery)
 	if err != nil {
 		return nil, err
 	} else {
@@ -117,31 +171,14 @@ func extractQuery(request *http.Request) (bson.M,error) {
 	}
 }
 
-func extractFields(request *http.Request) (bson.M,error) {
-	rQuery := request.URL.Query()
-	sFields := rQuery.Get("fields")
-	if sFields == "" {
-		return nil,nil
-	}
-	var bQuery bson.M
-	var err error
-	err = json.NewDecoder(strings.NewReader(sFields)).Decode(&bQuery)
-	if err != nil {
-		return nil, err
-	} else {
-		return bQuery, nil
-	}
-}
-
-func extractSort(request *http.Request) ([]string,error) {
-	rQuery := request.URL.Query()
-	sSort := rQuery.Get("sort")
-	if sSort == "" {
+func extractQueryParamStringArray(key string, request *http.Request) ([]string,error) {
+	value := extractQueryParam(key,request)
+	if value == "" {
 		return nil,nil
 	}
 	var fields []string
 	var err error
-	err = json.NewDecoder(strings.NewReader(sSort)).Decode(&fields)
+	err = json.NewDecoder(strings.NewReader(value)).Decode(&fields)
 	if err != nil {
 		return nil, err
 	} else {

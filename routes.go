@@ -31,6 +31,18 @@ var routes = Routes{
 		QueryCollection,
 	},
 	Route{
+		"CreateCollection",
+		"POST",
+		"/{dbName}",
+		CreateCollection,
+	},
+	Route{
+		"DropCollection",
+		"DELETE",
+		"/{dbName}/{collectionName}",
+		DropCollection,
+	},
+	Route{
 		"InsertCollection",
 		"POST",
 		"/{dbName}/{collectionName}",
