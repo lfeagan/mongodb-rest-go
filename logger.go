@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"net/url"
 )
 
 func Logger(inner http.Handler, name string) http.Handler {
@@ -15,9 +16,17 @@ func Logger(inner http.Handler, name string) http.Handler {
 		log.Printf(
 			"%s\t%s\t%s\t%s",
 			r.Method,
-			r.RequestURI,
+			prettyUrl(r),
 			name,
 			time.Since(start),
 		)
 	})
+}
+
+func prettyUrl(r *http.Request) string {
+	pretty,err := url.QueryUnescape(r.RequestURI)
+	if err != nil {
+		panic(err)
+	}
+	return pretty
 }
