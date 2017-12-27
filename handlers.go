@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	//"strconv"
+	"sync"
 
 	"github.com/gorilla/mux"
 
@@ -16,9 +17,28 @@ import (
 	"github.com/pkg/errors"
 )
 
+var mongoAddr string
+
+var sessionPool = sync.Pool{
+	New: func () interface{} {
+		session, err := mgo.Dial(mongoAddr)
+		if err != nil {
+			panic(err)
+		}
+		return session
+	},
+}
+
 func getClient() *mgo.Session {
-	url := "localhost:27017"
-	session, err := mgo.Dial(url)
+	return sessionPool.Get().(*mgo.Session)
+}
+
+func putClient(session *mgo.Session) {
+	sessionPool.Put(session)
+}
+
+func getClientOld() *mgo.Session {
+	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -30,6 +50,7 @@ func DbIndex(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	// fetch database names
 	dbNames, err := client.DatabaseNames()
 	if err != nil {
@@ -47,6 +68,7 @@ func CollectionIndex(response http.ResponseWriter, request *http.Request) {
 	dbName := vars["dbName"]
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	// fetch collection names
 	collectionNames,err := client.DB(dbName).CollectionNames()
 	if err != nil {
@@ -65,6 +87,7 @@ func DropCollection(response http.ResponseWriter, request *http.Request) {
 	collectionName := vars["collectionName"]
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	db := client.DB(dbName)
 	if db == nil  {
 		panic(errors.Errorf("No database named %s exists", dbName))
@@ -88,6 +111,7 @@ func CreateCollection(response http.ResponseWriter, request *http.Request) {
 	collectionName := vars["collectionName"]
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	db := client.DB(dbName)
 	if db == nil  {
 		panic(errors.Errorf("No database named %s exists", dbName))
@@ -111,6 +135,7 @@ func QueryCollection(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	// query collection
 	vars := mux.Vars(request)
 	dbName := vars["dbName"]
@@ -209,6 +234,7 @@ func InsertCollection(response http.ResponseWriter, request *http.Request) {
 
 	// get Mongo client for this session based on cookie or create new client
 	client := getClient()
+	defer putClient(client)
 	// insert to collection
 	vars := mux.Vars(request)
 	dbName := vars["dbName"]
