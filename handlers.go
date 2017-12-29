@@ -15,13 +15,19 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"strings"
 	"github.com/pkg/errors"
+	"time"
 )
 
 var mongoAddr string
 
 var sessionPool = sync.Pool{
 	New: func () interface{} {
-		session, err := mgo.Dial(mongoAddr)
+		dialInfo, err := mgo.ParseURL(mongoAddr)
+		if err != nil {
+			panic(err)
+		}
+		dialInfo.Timeout,err = time.ParseDuration("1s")
+		session, err := mgo.DialWithInfo(dialInfo)
 		if err != nil {
 			panic(err)
 		}
